@@ -1,8 +1,10 @@
+#ifdef WIN32
 #include <SDKDDKVer.h>
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#include <stdio.h>
+#endif
 
+#include <stdio.h>
 #include "../common/PA.h"
 
 int main(int argc, char* argv[])
