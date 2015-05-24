@@ -1,6 +1,9 @@
+#ifdef WIN32
 #include <SDKDDKVer.h>
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#endif
+
 #include <stdio.h>
 #include <locale.h>
 
@@ -69,7 +72,11 @@ std::string PADeviceInfo::name() const
 	if (!is_valid_()) return "";
 
 #ifdef WIN32
-	return std::string(info_->name);
+	wchar_t name_w[MAX_PATH];
+	char name_mb[MAX_PATH];
+	MultiByteToWideChar(CP_UTF8, 0, info_->name, -1, name_w, MAX_PATH - 1);
+	WideCharToMultiByte(CP_THREAD_ACP, 0, name_w, -1, name_mb, MAX_PATH - 1, NULL, NULL);
+	return std::string(name_mb);
 #else
 	return std::string(info_->name);
 #endif
