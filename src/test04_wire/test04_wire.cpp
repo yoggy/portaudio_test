@@ -7,13 +7,13 @@
 #include <stdio.h>
 #include "../common/PA.h"
 
-class TestRecord : public PA {
+class TestWire : public PA {
 public:
-	TestRecord() : PA() {
+	TestWire() : PA() {
 	}
 
 protected:
-	virtual int record_callback(const short *buf,
+	virtual int wire_callback(const short *buf,
 		unsigned long buf_size,
 		const PaStreamCallbackTimeInfo* time_info,
 		PaStreamCallbackFlags status_flag) {
@@ -34,14 +34,14 @@ protected:
 
 int main(int argc, char* argv[])
 {
-	TestRecord pa;
-	bool rv = pa.open_input(0, 1, 44100, 256);
+	TestWire pa;
+	bool rv = pa.open_wire(0, 0, 44100, 256);
 	if (rv == false) {
-		printf("error : pa.open_input() failed...\n");
+		printf("error : pa.open_wire() failed...\n");
 		return -1;
 	}
 
-	Sleep(10 * 1000);
+	Sleep(3 * 1000);
 
 	pa.close();
 

@@ -72,6 +72,7 @@ protected:
 #define PA_STREAM_TYPE_NONE   0
 #define PA_STREAM_TYPE_OUTPUT 1
 #define PA_STREAM_TYPE_INPUT  2
+#define PA_STREAM_TYPE_WIRE   3
 
 class PA
 {
@@ -81,10 +82,15 @@ public:
 	
 	bool is_open() const;
 	int stream_type() const;
-	int dev_idx() const;
-	PADeviceInfo device_info() const;
+	int input_device_idx() const;
+	int output_device_idx() const;
+	PADeviceInfo input_device_info() const;
+	PADeviceInfo output_device_info() const;
+	int channels() const;
 	
-	bool open_input(const int &dev_idx, const int &channels, const int sample_type, const int &sampling_rate, const int &buf_size);
+	bool open_input(const int &dev_idx, const int &channels, const int &sampling_rate, const int &buf_size);
+	bool open_output(const int &dev_idx, const int &channels, const int &sampling_rate, const int &buf_size);
+	bool open_wire(const int &input_dev_idx, const int &output_dev_idx, const int &sampling_rate, const int &buf_size);
 
 	void close();
 
@@ -96,13 +102,18 @@ public:
 	static void print_devices();
 
 protected:
-	virtual int record_callback(const void *input_buffer,
-		unsigned long frames_per_buffer,
+	virtual int record_callback(const short *buf,
+		unsigned long buf_size,
 		const PaStreamCallbackTimeInfo* time_info,
 		PaStreamCallbackFlags status_flag);
 
-	virtual int play_callback(void *output_buffer,
-		unsigned long frames_per_buffer,
+	virtual int play_callback(short *buf,
+		unsigned long buf_size,
+		const PaStreamCallbackTimeInfo* time_info,
+		PaStreamCallbackFlags status_flag);
+
+	virtual int wire_callback(const short *buf,
+		unsigned long buf_size,
 		const PaStreamCallbackTimeInfo* time_info,
 		PaStreamCallbackFlags status_flag);
 
@@ -118,10 +129,18 @@ protected:
 		PaStreamCallbackFlags status_flag,
 		void *user_data);
 
+	static int wire_callback_(const void *input_buffer, void *output_buffer,
+		unsigned long frames_per_buffer,
+		const PaStreamCallbackTimeInfo* time_info,
+		PaStreamCallbackFlags status_flag,
+		void *user_data);
+
 protected:
-	int dev_idx_;
+	int input_device_idx_;
+	int output_device_idx_;
 	PaStream *stream_;
 	int stream_type_;
+	int channels_;
 	
 };
 

@@ -270,7 +270,7 @@ std::string PADeviceInfo::str()
 
 //////////////////////////////////////////////////////////////////
 
-PA::PA() : dev_idx_(-1), stream_(NULL), stream_type_(PA_STREAM_TYPE_NONE)
+PA::PA() : input_device_idx_(-1), output_device_idx_(-1), stream_(NULL), stream_type_(PA_STREAM_TYPE_NONE), channels_(0)
 {
 
 }
@@ -291,24 +291,46 @@ int PA::stream_type() const
 	return stream_type_;
 }
 
-int PA::dev_idx() const
+int PA::input_device_idx() const
 {
-	return dev_idx_;
+	return input_device_idx_;
 }
 
-PADeviceInfo PA::device_info() const
+int PA::output_device_idx() const
+{
+	return output_device_idx_;
+}
+
+int PA::channels() const
+{
+	return channels_;
+}
+
+PADeviceInfo PA::input_device_info() const
 {
 	PADeviceInfo info;
 
 	if (is_open() == false) return PADeviceInfo();
 
-	bool rv = get_device_info(dev_idx_, info);
+	bool rv = get_device_info(input_device_idx_, info);
 	if (rv == false) return PADeviceInfo();
 	
 	return info;
 }
 
-bool PA::open_input(const int &dev_idx, const int &channels, const int sample_type, const int &sampling_rate, const int &frames_per_buffer)
+PADeviceInfo PA::output_device_info() const
+{
+	PADeviceInfo info;
+
+	if (is_open() == false) return PADeviceInfo();
+
+	bool rv = get_device_info(output_device_idx_, info);
+	if (rv == false) return PADeviceInfo();
+
+	return info;
+}
+
+bool PA::open_input(const int &dev_idx, const int &channels, const int &sampling_rate, const int &buf_size)
 {
 	PaError err;
 	PaStreamParameters input_param;
@@ -322,7 +344,7 @@ bool PA::open_input(const int &dev_idx, const int &channels, const int sample_ty
 
 	input_param.device = dev_idx;
 	input_param.channelCount = channels;
-	input_param.sampleFormat = sample_type;
+	input_param.sampleFormat = paInt16;
 	input_param.suggestedLatency = Pa_GetDeviceInfo(input_param.device)->defaultLowInputLatency;
 	input_param.hostApiSpecificStreamInfo = NULL;
 
@@ -331,22 +353,146 @@ bool PA::open_input(const int &dev_idx, const int &channels, const int sample_ty
 		&input_param,
 		NULL,
 		sampling_rate,
-		frames_per_buffer,
+		buf_size,  // frames_per_buffer
 		paClipOff,
 		record_callback_,
 		this);
 
 	if (err != paNoError) {
 		printf("error :  PA::open_input() : Pa_OpenStream() failed...dev_idx=%d", dev_idx);
-		stream_ = NULL;
+		close();
+		return false;
+	}
+
+	err = Pa_StartStream(stream_);
+	if (err != paNoError) {
+		printf("error :  PA::open_input() : Pa_StartStream() failed...dev_idx=%d", dev_idx);
+		close();
 		return false;
 	}
 
 	stream_type_ = PA_STREAM_TYPE_INPUT;
-	dev_idx_ = dev_idx;
+	input_device_idx_ = dev_idx;
+	channels_ = channels;
 
-	PADeviceInfo info = device_info();
-	printf("PA::open() : open device...dev_idx=%d, name=%s\n", dev_idx_, info.name().c_str());
+	PADeviceInfo info = input_device_info();
+	printf("PA::open_input() : open device...dev_idx=%d, name=%s\n", input_device_idx_, info.name().c_str());
+
+	return true;
+}
+
+bool PA::open_output(const int &dev_idx, const int &channels, const int &sampling_rate, const int &buf_size)
+{
+	PaError err;
+	PaStreamParameters output_param;
+
+	if (is_open()) return false;
+
+	if (dev_idx < 0 || get_device_count() <= dev_idx) {
+		printf("error :  PA::open_output() : out of index...dev_idx=%d", dev_idx);
+		return false;
+	}
+
+	output_param.device = dev_idx;
+	output_param.channelCount = channels;
+	output_param.sampleFormat = paInt16;
+	output_param.suggestedLatency = Pa_GetDeviceInfo(output_param.device)->defaultLowOutputLatency;
+	output_param.hostApiSpecificStreamInfo = NULL;
+
+	err = Pa_OpenStream(
+		&stream_,
+		NULL,
+		&output_param,
+		sampling_rate,
+		buf_size,  // frames_per_buffer
+		paClipOff,
+		play_callback_,
+		this);
+
+	if (err != paNoError) {
+		printf("error :  PA::open_output() : Pa_OpenStream() failed...dev_idx=%d", dev_idx);
+		close();
+		return false;
+	}
+
+	err = Pa_StartStream(stream_);
+	if (err != paNoError) {
+		printf("error :  PA::open_output() : Pa_StartStream() failed...dev_idx=%d", dev_idx);
+		close();
+		return false;
+	}
+
+	stream_type_ = PA_STREAM_TYPE_OUTPUT;
+	output_device_idx_ = dev_idx;
+	channels_ = channels;
+
+	PADeviceInfo info = output_device_info();
+	printf("PA::open_output() : open device...dev_idx=%d, name=%s\n", output_device_idx_, info.name().c_str());
+
+	return true;
+}
+
+bool PA::open_wire(const int &input_dev_idx, const int &output_dev_idx, const int &sampling_rate, const int &buf_size)
+{
+	PaError err;
+	PaStreamParameters input_param;
+	PaStreamParameters output_param;
+
+	if (is_open()) return false;
+
+	if (input_dev_idx < 0 || get_device_count() <= input_dev_idx) {
+		printf("error :  PA::open_wire() : out of index...input_dev_idx=%d", input_dev_idx);
+		return false;
+	}
+	if (output_dev_idx < 0 || get_device_count() <= output_dev_idx) {
+		printf("error :  PA::open_wire() : out of index...output_dev_idx=%d", output_dev_idx);
+		return false;
+	}
+
+	input_param.device = input_dev_idx;
+	input_param.channelCount = 2;
+	input_param.sampleFormat = paInt16;
+	input_param.suggestedLatency = Pa_GetDeviceInfo(input_param.device)->defaultLowInputLatency;
+	input_param.hostApiSpecificStreamInfo = NULL;
+
+	output_param.device = output_dev_idx;
+	output_param.channelCount = 2;
+	output_param.sampleFormat = paInt16;
+	output_param.suggestedLatency = Pa_GetDeviceInfo(output_param.device)->defaultLowInputLatency;
+	output_param.hostApiSpecificStreamInfo = NULL;
+
+	err = Pa_OpenStream(
+		&stream_,
+		&input_param,
+		&output_param,
+		sampling_rate,
+		buf_size,  // frames_per_buffer
+		paClipOff,
+		wire_callback_,
+		this);
+
+	if (err != paNoError) {
+		printf("error :  PA::open_wire() : Pa_OpenStream() failed...intput_dev_idx=%d, output_dev_idx=%d", input_dev_idx, output_dev_idx);
+		close();
+		return false;
+	}
+
+	err = Pa_StartStream(stream_);
+	if (err != paNoError) {
+		printf("error :  PA::open_wire() : Pa_StartStream() failed...intput_dev_idx=%d, output_dev_idx=%d", input_dev_idx, output_dev_idx);
+		close();
+		return false;
+	}
+
+	stream_type_ = PA_STREAM_TYPE_WIRE;
+	input_device_idx_ = input_dev_idx;
+	output_device_idx_ = output_dev_idx;
+
+	PADeviceInfo in_info = this->input_device_info();
+	PADeviceInfo out_info = this->output_device_info();
+	printf("PA::open_input() : open device...input=%d:%s, output=%d:%s\n", 
+		input_dev_idx, in_info.name().c_str(),
+		output_dev_idx, out_info.name().c_str());
 
 	return true;
 }
@@ -354,32 +500,53 @@ bool PA::open_input(const int &dev_idx, const int &channels, const int sample_ty
 void PA::close()
 {
 	if (is_open()) {
+		Pa_StopStream(stream_);
 		Pa_CloseStream(stream_);
 
-		PADeviceInfo info = device_info();
-		printf("PA::close() : close device...dev_idx=%d, name=%s\n", dev_idx_, info.name().c_str());
+		if (stream_type_ == PA_STREAM_TYPE_INPUT) {
+			printf("PA::close() : close input device...in:%d:%s\n", input_device_idx_, input_device_info().name().c_str());
+		}
+		else if (stream_type_ == PA_STREAM_TYPE_OUTPUT) {
+			printf("PA::close() : close output device...out:%d:%s\n", output_device_idx_, output_device_info().name().c_str());
+		}
+		else if (stream_type_ == PA_STREAM_TYPE_WIRE) {
+			printf("PA::close() : close wire device...in:%d:%s, out:%d:%s\n", 
+				input_device_idx_, input_device_info().name().c_str(),
+				output_device_idx_, output_device_info().name().c_str());
+		}
 
 		stream_ = NULL;
 		stream_type_ = PA_STREAM_TYPE_NONE;
-		dev_idx_ = -1;
+		input_device_idx_ = -1;
+		output_device_idx_ = -1;
+		channels_ = 0;
 	}
 }
 
-int PA::record_callback(const void *input_buffer,
-	unsigned long frames_per_buffer,
+int PA::record_callback(const short *buf,
+	unsigned long buf_size,
 	const PaStreamCallbackTimeInfo* time_info,
 	PaStreamCallbackFlags status_flag)
 {
-	printf("PA::record_callback(() frames_per_buffer=%d\n", frames_per_buffer);
+	printf("PA::record_callback(() buf_size=%d\n", buf_size);
 	return paContinue;
 }
 
-int PA::play_callback(void *output_buffer,
-	unsigned long frames_per_buffer,
+int PA::play_callback(short *buf,
+	unsigned long buf_size,
 	const PaStreamCallbackTimeInfo* time_info,
 	PaStreamCallbackFlags status_flag)
 {
-	printf("PA::play_callback() frames_per_buffer=%d\n", frames_per_buffer);
+	printf("PA::play_callback() buf_size=%d\n", buf_size);
+	return paContinue;
+}
+
+int PA::wire_callback(const short *buf,
+	unsigned long buf_size,
+	const PaStreamCallbackTimeInfo* time_info,
+	PaStreamCallbackFlags status_flag)
+{
+	printf("PA::record_callback(() buf_size=%d\n", buf_size);
 	return paContinue;
 }
 
@@ -390,7 +557,11 @@ int PA::record_callback_(const void *input_buffer, void *output_buffer,
 	void *user_data)
 {
 	PA *pa = (PA *)user_data;
-	return pa->record_callback(output_buffer, frames_per_buffer, time_info, status_flag);
+
+	short *buf = (short*)input_buffer;
+	unsigned long buf_size = frames_per_buffer * pa->channels();
+
+	return pa->record_callback(buf, buf_size, time_info, status_flag);
 }
 
 int PA::play_callback_(const void *input_buffer, void *output_buffer,
@@ -400,7 +571,28 @@ int PA::play_callback_(const void *input_buffer, void *output_buffer,
 	void *user_data)
 {
 	PA *pa = (PA *)user_data;
-	return pa->play_callback(output_buffer, frames_per_buffer, time_info, status_flag);
+
+	short *buf = (short*)output_buffer;
+	unsigned long buf_size = frames_per_buffer * pa->channels();
+
+	return pa->play_callback(buf, buf_size, time_info, status_flag);
+}
+
+int PA::wire_callback_(const void *input_buffer, void *output_buffer,
+	unsigned long frames_per_buffer,
+	const PaStreamCallbackTimeInfo* time_info,
+	PaStreamCallbackFlags status_flag,
+	void *user_data)
+{
+	PA *pa = (PA *)user_data;
+
+	short *in_buf = (short*)input_buffer;
+	short *out_buf = (short*)output_buffer;
+	unsigned long buf_size = frames_per_buffer;  // input is single channel...
+
+	memcpy(out_buf, in_buf, buf_size * sizeof(short));
+
+	return pa->wire_callback(in_buf, buf_size, time_info, status_flag);
 }
 
 int PA::get_default_input_device_idx()
