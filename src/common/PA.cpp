@@ -126,7 +126,7 @@ PaTime PADeviceInfo::default_high_output_latency() const
 
 #define GET_ASIO_LATENCY_VALUE() \
 	long min_buf_size, max_buf_size, prefered_buf_size, buf_granularity; \
-	PaAsio_GetAvailableLatencyValues(idx_, &min_buf_size, &max_buf_size, &prefered_buf_size, &buf_granularity); 
+	PaAsio_GetAvailableBufferSizes(idx_, &min_buf_size, &max_buf_size, &prefered_buf_size, &buf_granularity); 
 
 int PADeviceInfo::asio_min_buffer_size() const
 {
@@ -308,8 +308,6 @@ PADeviceInfo PA::device_info() const
 	return info;
 }
 
-
-
 bool PA::open_input(const int &dev_idx, const int &channels, const int sample_type, const int &sampling_rate, const int &frames_per_buffer)
 {
 	PaError err;
@@ -348,7 +346,7 @@ bool PA::open_input(const int &dev_idx, const int &channels, const int sample_ty
 	dev_idx_ = dev_idx;
 
 	PADeviceInfo info = device_info();
-	printf("PA::open() ; open device...dev_idx=%d, name=%s\n", dev_idx_, info.name().c_str());
+	printf("PA::open() : open device...dev_idx=%d, name=%s\n", dev_idx_, info.name().c_str());
 
 	return true;
 }
@@ -359,7 +357,7 @@ void PA::close()
 		Pa_CloseStream(stream_);
 
 		PADeviceInfo info = device_info();
-		printf("PA::close() ; close device...dev_idx=%d, name=%s\n", dev_idx_, info.name().c_str());
+		printf("PA::close() : close device...dev_idx=%d, name=%s\n", dev_idx_, info.name().c_str());
 
 		stream_ = NULL;
 		stream_type_ = PA_STREAM_TYPE_NONE;
@@ -372,6 +370,7 @@ int PA::record_callback(const void *input_buffer,
 	const PaStreamCallbackTimeInfo* time_info,
 	PaStreamCallbackFlags status_flag)
 {
+	printf("PA::record_callback(() frames_per_buffer=%d\n", frames_per_buffer);
 	return paContinue;
 }
 
@@ -380,6 +379,7 @@ int PA::play_callback(void *output_buffer,
 	const PaStreamCallbackTimeInfo* time_info,
 	PaStreamCallbackFlags status_flag)
 {
+	printf("PA::play_callback() frames_per_buffer=%d\n", frames_per_buffer);
 	return paContinue;
 }
 
