@@ -7,9 +7,23 @@
 #include <stdio.h>
 #include "../common/PA.h"
 
+#include <vector>
+
 class TestPlay : public PA {
+protected:
+	int idx_;
+	std::vector<float> sin_table_;
+
 public:
-	TestPlay() : PA() {
+	TestPlay() : PA() , idx_(0) {
+		float f = 440.0;
+		int size = (int)((1.0 / f) * 44100.0);
+		sin_table_.resize(size);
+		for (int i = 0; i < size; ++i) {
+			float p = (float)i / size;
+			float th = p *  2 * 3.14159f;
+			sin_table_[i] = (float)sin(th);
+		}
 	}
 
 protected:
@@ -18,14 +32,10 @@ protected:
 		const PaStreamCallbackTimeInfo* time_info,
 		PaStreamCallbackFlags status_flag) {
 
-		double st = time_info->outputBufferDacTime;
-		double dt = 1.0 / 44100.0;
-
 		for (unsigned int i = 0; i < buf_size; i+=2) {
-			double t = st + i * dt;
-			double th = t * 3.14159;
-			buf[i] = (float)(cos(th * 440) );
-			buf[i + 1] = (float)(cos(th * 220));
+			buf[i] = sin_table_[idx_];
+			buf[i + 1] = sin_table_[idx_];
+			idx_ = idx_ >= (int)sin_table_.size() ? 0 : idx_ + 1;
 		}
 
 		printf("buf_size=%d, time_info->outputBufferDacTime=%f\n", buf_size, time_info->outputBufferDacTime);
@@ -37,7 +47,7 @@ protected:
 int main(int argc, char* argv[])
 {
 	TestPlay pa;
-	bool rv = pa.open_output(1, 2, 44100, 4410);
+	bool rv = pa.open_output(1, 2, 44100, 256);
 	if (rv == false) {
 		printf("error : pa.open_output() failed...\n");
 		return -1;
