@@ -13,20 +13,20 @@ public:
 	}
 
 protected:
-	virtual int wire_callback(const short *buf,
+	virtual int wire_callback(const float *buf,
 		unsigned long buf_size,
 		const PaStreamCallbackTimeInfo* time_info,
 		PaStreamCallbackFlags status_flag) {
 
-		int max_val = 0;
+		float max_val = 0.0f;
 		for (unsigned int i = 0; i < buf_size; ++i) {
-			int val = abs(buf[i]);
+			float val = abs(buf[i]);
 			if (val > max_val) {
 				max_val = val;
 			}
 		}
 
-		printf("buf_size=%d, max_val=%d\n", buf_size, max_val);
+		printf("buf_size=%d, max_val=%f\n", buf_size, max_val);
 
 		return paContinue;
 	}
@@ -35,7 +35,7 @@ protected:
 int main(int argc, char* argv[])
 {
 	TestWire pa;
-	bool rv = pa.open_wire(0, 0, 44100, 256);
+	bool rv = pa.open_wire(1, 1, 44100, 256);
 	if (rv == false) {
 		printf("error : pa.open_wire() failed...\n");
 		return -1;

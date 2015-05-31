@@ -344,7 +344,7 @@ bool PA::open_input(const int &dev_idx, const int &channels, const int &sampling
 
 	input_param.device = dev_idx;
 	input_param.channelCount = channels;
-	input_param.sampleFormat = paInt16;
+	input_param.sampleFormat = paFloat32;
 	input_param.suggestedLatency = Pa_GetDeviceInfo(input_param.device)->defaultLowInputLatency;
 	input_param.hostApiSpecificStreamInfo = NULL;
 
@@ -395,7 +395,7 @@ bool PA::open_output(const int &dev_idx, const int &channels, const int &samplin
 
 	output_param.device = dev_idx;
 	output_param.channelCount = channels;
-	output_param.sampleFormat = paInt16;
+	output_param.sampleFormat = paFloat32;
 	output_param.suggestedLatency = Pa_GetDeviceInfo(output_param.device)->defaultLowOutputLatency;
 	output_param.hostApiSpecificStreamInfo = NULL;
 
@@ -451,13 +451,13 @@ bool PA::open_wire(const int &input_dev_idx, const int &output_dev_idx, const in
 
 	input_param.device = input_dev_idx;
 	input_param.channelCount = 2;
-	input_param.sampleFormat = paInt16;
+	input_param.sampleFormat = paFloat32;
 	input_param.suggestedLatency = Pa_GetDeviceInfo(input_param.device)->defaultLowInputLatency;
 	input_param.hostApiSpecificStreamInfo = NULL;
 
 	output_param.device = output_dev_idx;
 	output_param.channelCount = 2;
-	output_param.sampleFormat = paInt16;
+	output_param.sampleFormat = paFloat32;
 	output_param.suggestedLatency = Pa_GetDeviceInfo(output_param.device)->defaultLowInputLatency;
 	output_param.hostApiSpecificStreamInfo = NULL;
 
@@ -487,6 +487,7 @@ bool PA::open_wire(const int &input_dev_idx, const int &output_dev_idx, const in
 	stream_type_ = PA_STREAM_TYPE_WIRE;
 	input_device_idx_ = input_dev_idx;
 	output_device_idx_ = output_dev_idx;
+	channels_ = 2;
 
 	PADeviceInfo in_info = this->input_device_info();
 	PADeviceInfo out_info = this->output_device_info();
@@ -523,7 +524,7 @@ void PA::close()
 	}
 }
 
-int PA::record_callback(const short *buf,
+int PA::record_callback(const float *buf,
 	unsigned long buf_size,
 	const PaStreamCallbackTimeInfo* time_info,
 	PaStreamCallbackFlags status_flag)
@@ -532,7 +533,7 @@ int PA::record_callback(const short *buf,
 	return paContinue;
 }
 
-int PA::play_callback(short *buf,
+int PA::play_callback(float *buf,
 	unsigned long buf_size,
 	const PaStreamCallbackTimeInfo* time_info,
 	PaStreamCallbackFlags status_flag)
@@ -541,7 +542,7 @@ int PA::play_callback(short *buf,
 	return paContinue;
 }
 
-int PA::wire_callback(const short *buf,
+int PA::wire_callback(const float *buf,
 	unsigned long buf_size,
 	const PaStreamCallbackTimeInfo* time_info,
 	PaStreamCallbackFlags status_flag)
@@ -558,7 +559,7 @@ int PA::record_callback_(const void *input_buffer, void *output_buffer,
 {
 	PA *pa = (PA *)user_data;
 
-	short *buf = (short*)input_buffer;
+	float *buf = (float*)input_buffer;
 	unsigned long buf_size = frames_per_buffer * pa->channels();
 
 	return pa->record_callback(buf, buf_size, time_info, status_flag);
@@ -572,7 +573,7 @@ int PA::play_callback_(const void *input_buffer, void *output_buffer,
 {
 	PA *pa = (PA *)user_data;
 
-	short *buf = (short*)output_buffer;
+	float *buf = (float*)output_buffer;
 	unsigned long buf_size = frames_per_buffer * pa->channels();
 
 	return pa->play_callback(buf, buf_size, time_info, status_flag);
@@ -586,11 +587,11 @@ int PA::wire_callback_(const void *input_buffer, void *output_buffer,
 {
 	PA *pa = (PA *)user_data;
 
-	short *in_buf = (short*)input_buffer;
-	short *out_buf = (short*)output_buffer;
-	unsigned long buf_size = frames_per_buffer;  // input is single channel...
+	float *in_buf = (float*)input_buffer;
+	float *out_buf = (float*)output_buffer;
+	unsigned long buf_size = frames_per_buffer * pa->channels();  // input is single channel...
 
-	memcpy(out_buf, in_buf, buf_size * sizeof(short));
+	memcpy(out_buf, in_buf, buf_size * sizeof(float));
 
 	return pa->wire_callback(in_buf, buf_size, time_info, status_flag);
 }

@@ -102,17 +102,17 @@ public:
 	static void print_devices();
 
 protected:
-	virtual int record_callback(const short *buf,
+	virtual int record_callback(const float *buf,
 		unsigned long buf_size,
 		const PaStreamCallbackTimeInfo* time_info,
 		PaStreamCallbackFlags status_flag);
 
-	virtual int play_callback(short *buf,
+	virtual int play_callback(float *buf,
 		unsigned long buf_size,
 		const PaStreamCallbackTimeInfo* time_info,
 		PaStreamCallbackFlags status_flag);
 
-	virtual int wire_callback(const short *buf,
+	virtual int wire_callback(const float *buf,
 		unsigned long buf_size,
 		const PaStreamCallbackTimeInfo* time_info,
 		PaStreamCallbackFlags status_flag);
